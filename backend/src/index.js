@@ -102,6 +102,82 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// --- Dashboard ---
+app.get('/api/dashboard/metrics', async (req, res) => {
+  try {
+    const customerCount = await prisma.customer.count();
+    const orderCount = await prisma.order.count();
+    
+    const revenueAgg = await prisma.order.aggregate({
+      _sum: { revenue: true }
+    });
+    
+    const recentOrders = await prisma.order.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { customer: true, product: true }
+    });
+    
+    res.json({
+      totalCustomers: customerCount,
+      totalOrders: orderCount,
+      totalRevenue: revenueAgg._sum.revenue || 0,
+      recentOrders
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch dashboard metrics' });
+  }
+});
+
+// --- Analytics ---
+app.get('/api/analytics/revenue', async (req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'asc' }
+    });
+    
+    const revenueByDate = orders.reduce((acc, order) => {
+      const date = order.createdAt.toISOString().split('T')[0];
+      if (!acc[date]) acc[date] = 0;
+      acc[date] += order.revenue;
+      return acc;
+    }, {});
+    
+    const data = Object.keys(revenueByDate).map(date => ({
+      date,
+      revenue: revenueByDate[date]
+    }));
+    
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch revenue analytics' });
+  }
+});
+
+app.get('/api/analytics/products', async (req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      include: { product: true }
+    });
+    
+    const revenueByProduct = orders.reduce((acc, order) => {
+      const name = order.product?.name || 'Unknown';
+      if (!acc[name]) acc[name] = 0;
+      acc[name] += order.revenue;
+      return acc;
+    }, {});
+    
+    const data = Object.keys(revenueByProduct).map(name => ({
+      name,
+      revenue: revenueByProduct[name]
+    })).sort((a, b) => b.revenue - a.revenue);
+    
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch product analytics' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
