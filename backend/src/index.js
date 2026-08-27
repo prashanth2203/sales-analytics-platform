@@ -105,26 +105,42 @@ app.post('/api/orders', async (req, res) => {
 // --- Dashboard ---
 app.get('/api/dashboard/metrics', async (req, res) => {
   try {
-    const customerCount = await prisma.customer.count();
-    const orderCount = await prisma.order.count();
+    const metrics = await prisma.$queryRaw`
+      SELECT 
+        COUNT(DISTINCT customer_id) as "totalCustomers",
+        COUNT(sale_id) as "totalOrders",
+        COALESCE(SUM(revenue), 0) as "totalRevenue",
+        COALESCE(AVG(revenue), 0) as "aov"
+      FROM fact_sales
+    `;
     
-    const revenueAgg = await prisma.order.aggregate({
-      _sum: { revenue: true }
-    });
+    const recentOrders = await prisma.$queryRaw`
+      SELECT 
+        f.original_order_id as id,
+        c.name as "customerName",
+        p.name as "productName",
+        f.revenue,
+        f.sale_date as "createdAt"
+      FROM fact_sales f
+      JOIN dim_customer c ON f.customer_id = c.customer_id
+      JOIN dim_product p ON f.product_id = p.product_id
+      ORDER BY f.sale_date DESC
+      LIMIT 5
+    `;
     
-    const recentOrders = await prisma.order.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: { customer: true, product: true }
-    });
-    
+    // Convert BigInts from queryRaw to numbers
     res.json({
-      totalCustomers: customerCount,
-      totalOrders: orderCount,
-      totalRevenue: revenueAgg._sum.revenue || 0,
-      recentOrders
+      totalCustomers: Number(metrics[0].totalCustomers),
+      totalOrders: Number(metrics[0].totalOrders),
+      totalRevenue: Number(metrics[0].totalRevenue),
+      aov: Number(metrics[0].aov),
+      recentOrders: recentOrders.map((o) => ({
+        ...o,
+        revenue: Number(o.revenue)
+      }))
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to fetch dashboard metrics' });
   }
 });
@@ -132,49 +148,112 @@ app.get('/api/dashboard/metrics', async (req, res) => {
 // --- Analytics ---
 app.get('/api/analytics/revenue', async (req, res) => {
   try {
-    const orders = await prisma.order.findMany({
-      orderBy: { createdAt: 'asc' }
-    });
+    const revenueByDate = await prisma.$queryRaw`
+      SELECT 
+        DATE(sale_date) as date,
+        SUM(revenue) as revenue
+      FROM fact_sales
+      GROUP BY DATE(sale_date)
+      ORDER BY DATE(sale_date) ASC
+    `;
     
-    const revenueByDate = orders.reduce((acc, order) => {
-      const date = order.createdAt.toISOString().split('T')[0];
-      if (!acc[date]) acc[date] = 0;
-      acc[date] += order.revenue;
-      return acc;
-    }, {});
-    
-    const data = Object.keys(revenueByDate).map(date => ({
-      date,
-      revenue: revenueByDate[date]
-    }));
-    
-    res.json(data);
+    res.json(revenueByDate.map((r) => ({
+      date: r.date.toISOString().split('T')[0],
+      revenue: Number(r.revenue)
+    })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch revenue analytics' });
   }
 });
 
-app.get('/api/analytics/products', async (req, res) => {
+app.get('/api/analytics/sales-by-product', async (req, res) => {
   try {
-    const orders = await prisma.order.findMany({
-      include: { product: true }
-    });
+    const products = await prisma.$queryRaw`
+      SELECT 
+        p.name,
+        SUM(f.revenue) as revenue
+      FROM fact_sales f
+      JOIN dim_product p ON f.product_id = p.product_id
+      GROUP BY p.name
+      ORDER BY revenue DESC
+      LIMIT 5
+    `;
     
-    const revenueByProduct = orders.reduce((acc, order) => {
-      const name = order.product?.name || 'Unknown';
-      if (!acc[name]) acc[name] = 0;
-      acc[name] += order.revenue;
-      return acc;
-    }, {});
-    
-    const data = Object.keys(revenueByProduct).map(name => ({
-      name,
-      revenue: revenueByProduct[name]
-    })).sort((a, b) => b.revenue - a.revenue);
-    
-    res.json(data);
+    res.json(products.map((p) => ({
+      name: p.name,
+      revenue: Number(p.revenue)
+    })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch product analytics' });
+  }
+});
+
+app.get('/api/analytics/sales-by-category', async (req, res) => {
+  try {
+    const categories = await prisma.$queryRaw`
+      SELECT 
+        p.category,
+        SUM(f.revenue) as revenue
+      FROM fact_sales f
+      JOIN dim_product p ON f.product_id = p.product_id
+      GROUP BY p.category
+      ORDER BY revenue DESC
+    `;
+    
+    res.json(categories.map((c) => ({
+      name: c.category,
+      revenue: Number(c.revenue)
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch category analytics' });
+  }
+});
+
+app.get('/api/analytics/sales-by-city', async (req, res) => {
+  try {
+    const cities = await prisma.$queryRaw`
+      SELECT 
+        c.city,
+        SUM(f.revenue) as revenue
+      FROM fact_sales f
+      JOIN dim_customer c ON f.customer_id = c.customer_id
+      GROUP BY c.city
+      ORDER BY revenue DESC
+    `;
+    
+    res.json(cities.map((c) => ({
+      name: c.city,
+      revenue: Number(c.revenue)
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch city analytics' });
+  }
+});
+
+// --- Pipeline Trigger & Status ---
+app.post('/api/pipeline/run', async (req, res) => {
+  try {
+    const etlUrl = process.env.ETL_SERVICE_URL || 'http://localhost:8000';
+    const response = await fetch(`${etlUrl}/api/pipeline/run`, {
+      method: 'POST'
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to trigger ETL pipeline' });
+  }
+});
+
+app.get('/api/pipeline/status', async (req, res) => {
+  try {
+    const etlUrl = process.env.ETL_SERVICE_URL || 'http://localhost:8000';
+    const response = await fetch(`${etlUrl}/api/pipeline/status`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch pipeline status' });
   }
 });
 

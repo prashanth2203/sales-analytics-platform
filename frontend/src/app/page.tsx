@@ -4,6 +4,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Card } from '../components/Card';
 import { Table } from '../components/Table';
 import { EmptyState } from '../components/EmptyState';
+import { formatCurrency } from '../utils/formatCurrency';
 
 export default function Overview() {
   const [metrics, setMetrics] = useState<any>(null);
@@ -39,9 +40,6 @@ export default function Overview() {
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
 
   const columns = [
     { header: 'Order ID', accessor: 'id' },
@@ -52,8 +50,6 @@ export default function Overview() {
 
   const recentOrdersData = metrics.recentOrders.map((order: any) => ({
     ...order,
-    customerName: order.customer?.name,
-    productName: order.product?.name,
     formattedRevenue: formatCurrency(order.revenue)
   }));
 
@@ -64,7 +60,7 @@ export default function Overview() {
         description="Welcome back. Here is your high-level sales performance."
       />
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-6)', marginBottom: 'var(--space-8)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-6)', marginBottom: 'var(--space-8)' }}>
         <Card>
           <div style={{ color: 'var(--fg-secondary)', fontSize: '0.875rem', marginBottom: '8px' }}>Total Revenue</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{formatCurrency(metrics.totalRevenue)}</div>
@@ -76,6 +72,10 @@ export default function Overview() {
         <Card>
           <div style={{ color: 'var(--fg-secondary)', fontSize: '0.875rem', marginBottom: '8px' }}>Total Orders</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{metrics.totalOrders.toLocaleString()}</div>
+        </Card>
+        <Card>
+          <div style={{ color: 'var(--fg-secondary)', fontSize: '0.875rem', marginBottom: '8px' }}>Avg Order Value</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{formatCurrency(metrics.aov)}</div>
         </Card>
       </div>
 

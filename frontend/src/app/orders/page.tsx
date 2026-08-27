@@ -72,7 +72,7 @@ export default function OrdersPage() {
     { header: 'Customer', accessor: 'customerName' },
     { header: 'Product', accessor: 'productName' },
     { header: 'Qty', accessor: 'quantity' },
-    { header: 'Revenue ($)', accessor: 'revenue' }
+    { header: 'Revenue (₹)', accessor: 'revenue' }
   ];
 
   return (

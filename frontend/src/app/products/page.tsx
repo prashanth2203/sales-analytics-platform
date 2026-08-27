@@ -46,7 +46,7 @@ export default function ProductsPage() {
     { header: 'ID', accessor: 'id' },
     { header: 'Name', accessor: 'name' },
     { header: 'Category', accessor: 'category' },
-    { header: 'Price ($)', accessor: 'price' }
+    { header: 'Price (₹)', accessor: 'price' }
   ];
 
   return (
