@@ -1,0 +1,121 @@
+/* ui.css */
+
+/* Button */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.ui-btn-primary {
+  background-color: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent);
+}
+
+.ui-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.ui-btn-secondary {
+  background-color: transparent;
+  color: var(--fg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.ui-btn-secondary:hover {
+  background-color: var(--bg-secondary);
+}
+
+/* Card */
+.ui-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Table */
+.ui-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.ui-table th {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--fg-secondary);
+}
+
+.ui-table td {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.875rem;
+}
+
+.ui-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* PageHeader */
+.ui-page-header {
+  margin-bottom: var(--space-8);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ui-page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.ui-page-header p {
+  color: var(--fg-secondary);
+  margin-top: var(--space-1);
+  font-size: 0.875rem;
+}
+
+/* Empty State */
+.ui-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12);
+  text-align: center;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.ui-empty-state h3 {
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.ui-empty-state p {
+  color: var(--fg-secondary);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-6);
+  max-width: 400px;
+}
