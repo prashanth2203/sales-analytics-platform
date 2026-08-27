@@ -119,3 +119,32 @@
   margin-bottom: var(--space-6);
   max-width: 400px;
 }
+
+/* Forms */
+.ui-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ui-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--fg-primary);
+}
+
+.ui-input, .ui-select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ui-input:focus, .ui-select:focus {
+  border-color: var(--accent);
+}
