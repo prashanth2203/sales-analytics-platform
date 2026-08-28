@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "../components/Sidebar";
-import { Topbar } from "../components/Topbar";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,7 +24,6 @@ export default function RootLayout({
         <div className="app-container">
           <Sidebar />
           <div className="main-content">
-            <Topbar />
             <main className="page-container">
               {children}
             </main>

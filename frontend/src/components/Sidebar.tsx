@@ -25,6 +25,12 @@ export const Sidebar = () => {
       ]
     },
     {
+      group: 'DATA MANAGEMENT',
+      items: [
+        { name: 'Import Data', path: '/import' },
+      ]
+    },
+    {
       group: 'SYSTEM',
       items: [
         { name: 'Data Pipeline', path: '/pipeline' },
@@ -36,8 +42,7 @@ export const Sidebar = () => {
     <aside className="sidebar">
       <div style={{ padding: 'var(--space-6) var(--space-8)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em' }}>
-          <div style={{ width: 12, height: 12, background: 'var(--accent)' }}></div>
-          <span style={{ fontWeight: 800, fontSize: '0.875rem' }}>SALES<span style={{ color: 'var(--fg-tertiary)', margin: '0 2px' }}>//</span>DATA</span>
+          <span style={{ fontWeight: 800, fontSize: '1.25rem' }}>Sales Data</span>
         </div>
       </div>
       <nav style={{ padding: 'var(--space-6) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>

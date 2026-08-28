@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const multer = require('multer');
+const xlsx = require('xlsx');
 const { PrismaClient } = require('@prisma/client');
 
 dotenv.config();
@@ -227,6 +229,168 @@ app.get('/api/analytics/sales-by-city', async (req, res) => {
     })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch city analytics' });
+  }
+});
+
+// --- Import Data ---
+const upload = multer({ storage: multer.memoryStorage() });
+
+app.post('/api/import/excel', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    
+    // Validate sheets
+    const requiredSheets = ['Customers', 'Products', 'Orders'];
+    for (const sheetName of requiredSheets) {
+      if (!workbook.SheetNames.includes(sheetName)) {
+        return res.status(400).json({ error: `Missing required sheet: ${sheetName}` });
+      }
+    }
+
+    const customersData = xlsx.utils.sheet_to_json(workbook.Sheets['Customers']);
+    const productsData = xlsx.utils.sheet_to_json(workbook.Sheets['Products']);
+    const ordersData = xlsx.utils.sheet_to_json(workbook.Sheets['Orders']);
+
+    let customersImported = 0;
+    let productsImported = 0;
+    let ordersImported = 0;
+
+    // We will store mapping of original Excel IDs to new Database IDs
+    const customerIdMap = new Map(); 
+    const productIdMap = new Map();
+
+    // 1. Import Customers
+    for (const row of customersData) {
+      const excelId = row['Customer ID'];
+      const name = row['Name'];
+      const city = row['City'];
+
+      if (!name || !city) continue;
+
+      let customer = await prisma.customer.findFirst({
+        where: { name, city }
+      });
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: { name, city }
+        });
+        customersImported++;
+      }
+      
+      if (excelId) {
+        customerIdMap.set(excelId.toString(), customer.id);
+      }
+    }
+
+    // 2. Import Products
+    for (const row of productsData) {
+      const excelId = row['Product ID'];
+      const name = row['Name'];
+      const category = row['Category'];
+      const price = parseFloat(row['Price']);
+
+      if (!name || !category || isNaN(price)) continue;
+
+      let product = await prisma.product.findFirst({
+        where: { name, category }
+      });
+
+      if (!product) {
+        product = await prisma.product.create({
+          data: { name, category, price }
+        });
+        productsImported++;
+      } else if (product.price !== price) {
+        // Update price if it changed
+        product = await prisma.product.update({
+          where: { id: product.id },
+          data: { price }
+        });
+      }
+      
+      if (excelId) {
+        productIdMap.set(excelId.toString(), product.id);
+      }
+    }
+
+    // 3. Import Orders
+    for (const row of ordersData) {
+      const excelCustId = row['Customer ID']?.toString();
+      const excelProdId = row['Product ID']?.toString();
+      const quantity = parseInt(row['Quantity']);
+      const orderDateExcel = row['Order Date']; // Might be a number or string
+
+      if (!excelCustId || !excelProdId || isNaN(quantity)) continue;
+
+      const customerId = customerIdMap.get(excelCustId);
+      const productId = productIdMap.get(excelProdId);
+
+      if (!customerId || !productId) continue; // Skip if we couldn't resolve the DB ID
+
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+      if (!product) continue;
+
+      const revenue = product.price * quantity;
+      
+      // Parse Order Date if present (Excel stores dates as numbers sometimes)
+      let createdAt = new Date();
+      if (orderDateExcel) {
+        if (typeof orderDateExcel === 'number') {
+           // Excel epoch starts at Jan 1 1900
+           createdAt = new Date((orderDateExcel - 25569) * 86400 * 1000);
+        } else {
+           const parsed = new Date(orderDateExcel);
+           if (!isNaN(parsed.getTime())) createdAt = parsed;
+        }
+      }
+
+      await prisma.order.create({
+        data: {
+          customerId,
+          productId,
+          quantity,
+          revenue,
+          createdAt
+        }
+      });
+      ordersImported++;
+    }
+
+    res.json({
+      success: true,
+      customersImported,
+      productsImported,
+      ordersImported,
+      message: "Import completed successfully"
+    });
+
+  } catch (error) {
+    console.error("Excel import error:", error);
+    res.status(500).json({ error: 'Failed to process Excel file', details: error.message });
+  }
+});
+
+app.post('/api/import/clear', async (req, res) => {
+  try {
+    // Delete in correct order to respect foreign key constraints
+    await prisma.order.deleteMany({});
+    await prisma.product.deleteMany({});
+    await prisma.customer.deleteMany({});
+    
+    // Also clear DW tables
+    await prisma.$executeRaw`TRUNCATE TABLE fact_sales CASCADE`;
+    await prisma.$executeRaw`TRUNCATE TABLE dim_product CASCADE`;
+    await prisma.$executeRaw`TRUNCATE TABLE dim_customer CASCADE`;
+
+    res.json({ success: true, message: 'All data cleared successfully. Ready for a fresh start!' });
+  } catch (error) {
+    console.error("Clear data error:", error);
+    res.status(500).json({ error: 'Failed to clear data', details: error.message });
   }
 });
 
